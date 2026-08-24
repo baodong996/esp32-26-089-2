@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "esp32-dev-test",
+			"path": "../../../PlatfomioProjects/esp32-dev-test"
+		}
+	],
+	"settings": {}
+}

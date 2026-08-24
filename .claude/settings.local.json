@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"d:\\\\下载\" | head -50)",
+      "Read(//d/下载/**)",
+      "Bash(pio run *)",
+      "Bash(\"C:/Users/123/.platformio/penv/Scripts/pio.exe\" run *)",
+      "Read(//c/Keil_v5/UV4/**)",
+      "Read(//c/Keil/UV4/**)",
+      "Bash(where UV4)",
+      "Bash(where gcc *)",
+      "Read(//c/Program Files/LLVM/bin/**)",
+      "Read(//c/Program Files/Microsoft Visual Studio/2022/**)",
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/**)"
+    ]
+  }
+}
