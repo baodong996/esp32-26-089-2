@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WebSocketsServer.h>
 #include <soc/uart_reg.h>   /* UART_CONF0_REG / UART_TXD_INV: 直接反相 TX 电平 */
 
 /*
@@ -20,10 +21,23 @@
  *
  * 重入保护: 扫描/连接期间到达的新请求, 处理完后统一丢弃并重新同步帧解析。
  *
+ * WebSocket 服务器: WiFi 连接成功后启动, 监听 ws://<esp-ip>:81,
+ *   暴露在局域网等待其它设备连接; 每 5 秒向所有已连接客户端推送
+ *   {"key":"hello"}. WiFi 断开(重新配网)时服务器停止.
+ *
  * 调试: Serial(USB) 打印所有收/发帧细节.
  */
 
 HardwareSerial sport(2);
+
+/* ---------- WebSocket 服务器(WiFi 连上后启动, 暴露到局域网) ---------- */
+#define WS_PORT 81          /* 监听端口: 客户端连 ws://<esp-ip>:81 */
+WebSocketsServer ws(WS_PORT);
+uint8_t ws_clients = 0;     /* 当前已连接的客户端数(诊断) */
+bool    ws_started = false; /* 服务器已启动标志(WiFi 连接成功后置位, 断线复位) */
+
+#define WS_PUSH_INTERVAL_MS 5000   /* 每 5 秒向所有已连接设备推送一次 */
+static uint32_t s_last_push_ms = 0;
 
 #define SPORT_PIN 13        /* S.PORT 单线(半双工): 收发同一引脚 */
 
@@ -168,6 +182,65 @@ void send_frame(uint8_t cmd, const uint8_t *data, uint8_t len)
     rx_reset();
 }
 
+/* WebSocket 事件回调: 统计在线客户端数 */
+static void ws_event(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+{
+    switch (type)
+    {
+        case WStype_CONNECTED:
+        {
+            IPAddress ip = ws.remoteIP(num);
+            Serial.printf("WS: client #%u connected: %s\n", num, ip.toString().c_str());
+            ws_clients = ws.connectedClients();
+            break;
+        }
+        case WStype_DISCONNECTED:
+            Serial.printf("WS: client #%u disconnected\n", num);
+            ws_clients = ws.connectedClients();
+            break;
+        case WStype_TEXT:
+            Serial.printf("WS: client #%u text [%u B]: %s\n", num, (unsigned)length, (char *)payload);
+            break;
+        default:
+            break;
+    }
+}
+
+/* 启动 WebSocket 服务器(连接成功后调用); 失败打印错误 */
+static void ws_start()
+{
+    if (ws_started) return;
+    ws.begin();
+    ws.onEvent(ws_event);
+    ws_started = true;
+    Serial.printf("WS: server listening on ws://%s:%u\n", WiFi.localIP().toString().c_str(), WS_PORT);
+}
+
+/* 停止并断开所有客户端(断线后调用) */
+static void ws_stop()
+{
+    if (!ws_started) return;
+    ws.close();
+    ws_started = false;
+    ws_clients = 0;
+    Serial.println("WS: server stopped");
+}
+
+/* 周期推送: 每 5 秒向所有已连接客户端发送 {"key":"hello"} */
+static void ws_poll_push()
+{
+    if (!ws_started) return;
+    ws.loop();   /* 驱动 WebSockets 协议栈(收发/心跳), 必须周期调用 */
+
+    if (ws_clients == 0) return;
+    if (millis() - s_last_push_ms < WS_PUSH_INTERVAL_MS) return;
+    s_last_push_ms = millis();
+
+    static const char msg[] = "{\"key\":\"hello\"}";
+    ws.broadcastTXT(msg);
+    Serial.printf("WS: push to %u client(s): %s\n", ws_clients, msg);
+}
+
 void handle_scan()
 {
     Serial.println("SCAN: starting WiFi.scanNetworks()...");
@@ -259,6 +332,7 @@ void handle_connect(const uint8_t *data, uint8_t len)
     unsigned long t0 = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000)
     {
+        if (ws_started) ws_stop();   /* 若之前连过: 断开期间停掉 WS 服务器 */
         delay(200);
     }
 
@@ -283,6 +357,9 @@ void handle_connect(const uint8_t *data, uint8_t len)
         Serial.print("CONNECT: ip=");
         Serial.println(WiFi.localIP());
         send_frame(CMD_CONN_RESULT, &st, 1);
+
+        /* 连接成功: 启动 WebSocket 服务器, 暴露到局域网 */
+        ws_start();
     }
     else
     {
@@ -359,6 +436,9 @@ void loop()
         while (sport.available() > 0) sport.read();
         rx_reset();
     }
+
+    /* WebSocket 周期维护 + 每 5 秒推送 {"key":"hello"} */
+    ws_poll_push();
 
     delay(2);
 }
