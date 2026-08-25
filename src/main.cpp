@@ -31,7 +31,7 @@
 HardwareSerial sport(2);
 
 /* ---------- WebSocket 服务器(WiFi 连上后启动, 暴露到局域网) ---------- */
-#define WS_PORT 81          /* 监听端口: 客户端连 ws://<esp-ip>:81 */
+#define WS_PORT 9009          /* 监听端口: 客户端连 ws://<esp-ip>:81 */
 WebSocketsServer ws(WS_PORT);
 uint8_t ws_clients = 0;     /* 当前已连接的客户端数(诊断) */
 bool    ws_started = false; /* 服务器已启动标志(WiFi 连接成功后置位, 断线复位) */
