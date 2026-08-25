@@ -11,7 +11,11 @@
       "Bash(where gcc *)",
       "Read(//c/Program Files/LLVM/bin/**)",
       "Read(//c/Program Files/Microsoft Visual Studio/2022/**)",
-      "Read(//c/Program Files \\\\\\(x86\\\\\\)/**)"
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/**)",
+      "Bash(grep -rn \"class WebSocketsServer\" \"C:/Users/123/.platformio/packages\" 2>/dev/null | head -3; echo ---; find \"C:/Users/123/.platformio\" -maxdepth 4 -iname \"*websockets*\" -type d 2>/dev/null | head -5)",
+      "Read(//c/Users/123/.platformio/packages/**)",
+      "Read(//c/Users/123/.platformio/**)",
+      "Bash(find \"C:/Users/123/.platformio\" -maxdepth 6 -iname \"*websockets*\" 2>/dev/null | head -8; echo ---; find \"d:/下载/esp32-26-089-2/.pio\" -maxdepth 4 -iname \"*websocket*\" 2>/dev/null | head -8)"
     ]
   }
 }
